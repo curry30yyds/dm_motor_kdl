@@ -1,0 +1,9 @@
+<launch>
+  <arg name="trajectory_file" default="$(find dm_motor_controller)/config/trajectory.yaml" />
+  <arg name="mode" default="v" /> <!-- p:position 或 v:velocity-->
+
+ <node pkg="dm_motor_controller" type="publish_trajectory" name="trajectory_publisher" output="screen">
+    <param name="trajectory_file" value="$(arg trajectory_file)" />
+    <param name="mode" value="$(arg mode)" />
+  </node>
+</launch>

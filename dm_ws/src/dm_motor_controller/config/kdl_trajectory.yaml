@@ -1,0 +1,12 @@
+trajectory:
+  theta_start: -3.14  
+  theta_end: 3.14   
+  kp: 5.0           
+  kd: 0.2          
+  v_max: 1.0       
+  a_max: 10.0      
+  frequency: 200.0  
+
+  loop: true       
+  save_csv: true   
+  csv_path: "/home/zzz/trajectory_log.csv" 

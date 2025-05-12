@@ -1,0 +1,13 @@
+params:
+  # 等效位置控制（mode: p）
+  - {mode: p, kp: 5.0, kd: 0.2, position: 0.0,   velocity: 0.0, torque: 0.0}
+  - {mode: p, kp: 5.0, kd: 0.2, position: 1.57,  velocity: 0.0, torque: 0.0}
+  - {mode: p, kp: 5.0, kd: 0.2, position: -1.57, velocity: 0.0, torque: 0.0}
+  - {mode: p, kp: 5.0, kd: 0.2, position: 3.14,  velocity: 0.0, torque: 0.0}
+  - {mode: p, kp: 5.0, kd: 0.2, position: -3.14, velocity: 0.0, torque: 0.0}
+
+  # 等效速度控制（mode: v）
+  - {mode: v, kp: 0.0, kd: 1.0, position: 0.0, velocity: 3.0, torque: 0.0}
+  - {mode: v, kp: 0.0, kd: 1.0, position: 0.0, velocity: -3.0, torque: 0.0}
+
+rate: 0.5 

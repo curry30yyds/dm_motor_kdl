@@ -1,0 +1,8 @@
+prefix=/home/zzz/dm_ws/install
+
+Name: dm_motor_controller
+Description: Description of dm_motor_controller
+Version: 0.0.0
+Cflags: -I${prefix}/include
+Libs: -L${prefix}/lib 
+Requires: roscpp std_msgs sensor_msgs message_runtime

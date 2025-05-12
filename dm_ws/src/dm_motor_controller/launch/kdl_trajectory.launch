@@ -1,0 +1,6 @@
+<launch>
+  <arg name="config_file" default="$(find dm_motor_controller)/config/kdl_trajectory.yaml" />
+  <node pkg="dm_motor_controller" type="kdl_trajectory_generator" name="kdl_trajectory_generator" output="screen">
+    <param name="config_file" value="$(arg config_file)" />
+  </node>
+</launch>

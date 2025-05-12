@@ -1,0 +1,2 @@
+dm_motor_controller
+-DCATKIN_DEVEL_PREFIX=/home/zzz/dm_ws/devel -DCMAKE_INSTALL_PREFIX=/home/zzz/dm_ws/install -G Unix Makefiles

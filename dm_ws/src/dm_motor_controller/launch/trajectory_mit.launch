@@ -1,0 +1,10 @@
+<launch>
+  <node pkg="dm_motor_controller" type="trajectory_mit_node" name="trajectory_mit_node" output="screen">
+    <param name="yaml_path" value="$(find dm_motor_controller)/config/trajectory_kdl.yaml"/>
+    <param name="csv_path" value="$(find dm_motor_controller)/data/trajectory_latest.csv"/>
+    <param name="csv_all_path " value="$(find dm_motor_controller)/data/trajectory_all.csv"/>
+    <!-- <param name="csv_path" value="/home/zzz/trajectory.csv"/> -->
+    <param name="segment_time" value="2.0"/>
+    <param name="dt" value="0.01"/>
+  </node>
+</launch>

@@ -1,0 +1,33 @@
+{
+    "configurations": [
+        {
+            "browse": {
+                "databaseFilename": "${default}",
+                "limitSymbolsToIncludedHeaders": false
+            },
+            "includePath": [
+                "/home/zzz/test_ws_turtlebot3/devel/include/**",
+                "/home/zzz/funny_lidar_slam_ws/devel/include/**",
+                "/home/zzz/hy_ws/devel/include/**",
+                "/opt/ros/noetic/include/**",
+                "/home/zzz/test_ws_turtlebot3/src/base_planner/include/**",
+                "/home/zzz/hy_ws/src/dangkang_arm_control/include/**",
+                "/home/zzz/test_ws_turtlebot3/src/funny_lidar_slam/include/**",
+                "/home/zzz/test_ws_turtlebot3/src/inspection_executor/include/**",
+                "/home/zzz/test_ws_turtlebot3/src/path_recorder/include/**",
+                "/home/zzz/hy_ws/src/traclabs-trac_ik-8cb96e73aa1f/trac_ik_kinematics_plugin/include/**",
+                "/home/zzz/hy_ws/src/traclabs-trac_ik-8cb96e73aa1f/trac_ik_lib/include/**",
+                "/home/zzz/test_ws_turtlebot3/src/turtlebot3_velodyne/turtlebot3_velodyne_gazebo/include/**",
+                "/home/zzz/test_ws_turtlebot3/src/velodyne_gazebo_plugins/include/**",
+                "/usr/include/**",
+                "${workspaceFolder}/src/dm_motor_controller/include"
+            ],
+            "name": "ROS",
+            "intelliSenseMode": "gcc-x64",
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "gnu11",
+            "cppStandard": "c++14"
+        }
+    ],
+    "version": 4
+}
