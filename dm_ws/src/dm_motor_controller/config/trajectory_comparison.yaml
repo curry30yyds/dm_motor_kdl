@@ -1,0 +1,12 @@
+points: [0.0, -3.14, 0.0, -1.0, 1.5, 3.14, 2.0, 0.0]
+segment_time: 2.0
+frequency: 200
+kp: 10.0
+kd: 1.0
+torque: 0.2
+pos_gain: 10.0       
+vel_gain: 1.0    
+ff_gain: 1.0       
+loop: true
+loop_count: 1
+control_mode: "velocity"  #velocity   position

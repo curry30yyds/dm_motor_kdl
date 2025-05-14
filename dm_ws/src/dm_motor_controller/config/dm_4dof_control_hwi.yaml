@@ -1,0 +1,13 @@
+
+segment_time: 2.0
+frequency: 200
+kp: 10.0
+kd: 1.0
+torque: 0.0
+pos_gain: 1.0
+vel_gain: 1.0
+ff_gain: 1.0
+v_max: 5.0
+loop: false
+loop_count: 1
+control_mode: "velocity"

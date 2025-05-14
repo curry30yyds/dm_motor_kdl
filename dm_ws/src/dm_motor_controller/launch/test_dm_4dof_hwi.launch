@@ -1,0 +1,9 @@
+<launch>
+  <!-- 启动控制节点 -->
+  <node name="dm_4dof_control_hwi_node" pkg="dm_motor_controller" type="dm_4dof_control_hwi_node" output="screen">
+    <param name="yaml_path" value="$(find dm_motor_controller)/config/dm_4dof_control_hwi.yaml" />
+    <param name="csv_path" value="$(find dm_motor_controller)/data/trajectory_result.csv" />
+  </node>
+
+
+</launch>

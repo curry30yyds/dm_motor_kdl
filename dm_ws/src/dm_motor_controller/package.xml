@@ -5,29 +5,35 @@
   <description>The dm_motor_controller package</description>
 
   <maintainer email="zzz@todo.todo">zzz</maintainer>
-  <license>TODO</license>
+  <license>MIT</license>
 
   <buildtool_depend>catkin</buildtool_depend>
 
-
+  <!-- Build dependencies -->
   <build_depend>roscpp</build_depend>
   <build_depend>std_msgs</build_depend>
   <build_depend>sensor_msgs</build_depend>
   <build_depend>message_generation</build_depend>
-
- 
-  <build_export_depend>roscpp</build_export_depend>
-  <build_export_depend>std_msgs</build_export_depend>
-  <build_export_depend>sensor_msgs</build_export_depend>
   <build_depend>yaml-cpp</build_depend>
   <build_depend>orocos-kdl</build_depend>
 
+  <!-- Exported build dependencies -->
+  <build_export_depend>roscpp</build_export_depend>
+  <build_export_depend>std_msgs</build_export_depend>
+  <build_export_depend>sensor_msgs</build_export_depend>
+  <build_export_depend>message_runtime</build_export_depend>
+  <build_export_depend>yaml-cpp</build_export_depend>
+  <build_export_depend>orocos-kdl</build_export_depend>
+  <build_depend>hy_hardware_interface</build_depend>
+  
+  <!-- Run-time dependencies -->
   <exec_depend>roscpp</exec_depend>
   <exec_depend>std_msgs</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
   <exec_depend>message_runtime</exec_depend>
   <exec_depend>yaml-cpp</exec_depend>
   <exec_depend>orocos-kdl</exec_depend>
+  <exec_depend>hy_hardware_interface</exec_depend>
   <export>
   </export>
 </package>

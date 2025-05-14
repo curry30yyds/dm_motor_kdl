@@ -1,12 +1,9 @@
 <launch>
+    <node name="dm_motor_node_instance" pkg="dm_motor_controller" type="dm_motor_node" output="screen" />
 
-  <node pkg="dm_motor_controller" type="dm_motor_node" name="dm_motor_node" output="screen" />
-
-
-  <node pkg="dm_motor_controller"
-        type="motor_zeroing_node"
-        name="motor_zeroing_node"
-        output="screen"
-        required="false"
-        launch-prefix="bash -c 'sleep 2; $0 $@'" />
+    <!-- 延迟启动 motor_zeroing_node，确保电机已经初始化 -->
+    <node name="motor_zeroing_client_instance" pkg="dm_motor_controller" type="motor_zeroing_node" output="screen">
+        <param name="launch_delay" value="2.0"/>
+    </node>
 </launch>
+

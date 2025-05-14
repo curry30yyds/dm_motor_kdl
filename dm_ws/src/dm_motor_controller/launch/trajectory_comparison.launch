@@ -1,0 +1,12 @@
+<launch>
+    <!-- 参数配置文件路径 -->
+    <arg name="yaml_path" default="$(find dm_motor_controller)/config/trajectory_comparison.yaml"/>
+    <arg name="csv_path" default="$(find dm_motor_controller)/data/trajectory_comparison.csv"/>
+
+
+    <!-- 启动对比测试节点 -->
+    <node name="trajectory_comparison_node" pkg="dm_motor_controller" type="trajectory_comparison_node" output="screen">
+        <param name="yaml_path" value="$(arg yaml_path)" />
+        <param name="csv_path" value="$(arg csv_path)" />
+    </node>
+</launch>

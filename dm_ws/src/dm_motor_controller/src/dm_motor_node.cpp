@@ -1,93 +1,136 @@
-#include "ros/ros.h"
-#include "std_msgs/Float64.h"
-#include "sensor_msgs/JointState.h"
+#include <ros/ros.h>
+#include <memory>
+#include <string>
+#include <std_msgs/Float64.h>
+#include <sensor_msgs/JointState.h>
 #include "dm_motor_controller/damiao.h"
-#include "dm_motor_controller/MITCommand.h"
+#include "dm_motor_controller/mit_control_frame.h"
 
-std::shared_ptr<damiao::Motor_Control> dm;
-damiao::Motor M1(damiao::DM4310, 0x01, 0x00);
-
-ros::Publisher joint_state_pub;
-int control_mode = -1;  
-
-void controlCallback(const std_msgs::Float64::ConstPtr& msg)
+namespace dm_motor_node
 {
-    double target_position = msg->data;
-    ROS_INFO_STREAM("Received position command: " << target_position << " rad");
 
-    if (control_mode != damiao::POS_VEL_MODE) {
-        dm->switchControlMode(M1, damiao::POS_VEL_MODE);
-        control_mode = damiao::POS_VEL_MODE;
-        dm->enable(M1);
-        ROS_INFO("Switched to POS_VEL_MODE.");
+  class MotorInterface
+  {
+  public:
+    MotorInterface(const std::string &serial_port, int baudrate)
+        : motor_(damiao::DM4310, 0x01, 0x10), has_pos_command_(false), has_mit_command_(false)
+    {
+      try
+      {
+        serial_ = std::make_shared<SerialPort>(serial_port, baudrate);
+        motor_control_ = std::make_shared<damiao::Motor_Control>(serial_);
+        motor_control_->addMotor(&motor_);
+        motor_control_->switchControlMode(motor_, damiao::POS_VEL_MODE);
+        motor_control_->enable(motor_);
+        control_mode_ = damiao::POS_VEL_MODE;
+        ROS_INFO("Motor initialized and enabled in POS_VEL_MODE.");
+      }
+      catch (const std::exception &e)
+      {
+        ROS_ERROR("Initialization failed: %s", e.what());
+        throw;
+      }
     }
 
-    dm->control_pos_vel(M1, target_position, 5.0); 
-    ROS_INFO("Position control command sent.");
-}
-
-void mitCallback(const dm_motor_controller::MITCommand::ConstPtr& msg)
-{
-    ROS_INFO("Received MIT control command.");
-
-    if (control_mode != damiao::MIT_MODE) {
-        dm->switchControlMode(M1, damiao::MIT_MODE);
-        control_mode = damiao::MIT_MODE;
-        dm->enable(M1);
-        ROS_INFO("Switched to MIT_MODE.");
+    void InitROS(ros::NodeHandle &nh)
+    {
+      joint_state_pub_ = nh.advertise<sensor_msgs::JointState>("/JointStates", 1);
+      pos_sub_ = nh.subscribe("dm_motor/command", 1, &MotorInterface::PositionCommandCallback, this);
+      mit_sub_ = nh.subscribe("/JointCmds", 1, &MotorInterface::MITCommandCallback, this);
     }
 
-    dm->control_mit(M1, msg->kp, msg->kd, msg->position, msg->velocity, msg->torque);
-    ROS_INFO("MIT control command sent.");
-}
+    void SpinOnce()
+    {
+      if (mit_sub_.getNumPublishers() > 0 && control_mode_ != damiao::MIT_MODE)
+      {
+        motor_control_->switchControlMode(motor_, damiao::MIT_MODE);
+        motor_control_->enable(motor_);
+        control_mode_ = damiao::MIT_MODE;
+        ROS_INFO("Auto-switched to MIT_MODE.");
+      }
 
-void publishJointState()
-{
-    sensor_msgs::JointState state;
-    state.header.stamp = ros::Time::now();
-    state.name.push_back("motor_joint");
+      if (has_pos_command_ && control_mode_ == damiao::POS_VEL_MODE)
+      {
+        motor_control_->control_pos_vel(motor_, target_position_, 5.0);
+      }
 
-    double pos = M1.Get_Position();
-    double vel = M1.Get_Velocity();
-    double tau = M1.Get_tau();
+      if (has_mit_command_ && control_mode_ == damiao::MIT_MODE)
+      {
+        motor_control_->control_mit(motor_,
+                                    mit_cmd_.kp,
+                                    mit_cmd_.kd,
+                                    mit_cmd_.p_des,
+                                    mit_cmd_.v_des,
+                                    mit_cmd_.t_ff);
+      }
 
-    state.position.push_back(pos);
-    state.velocity.push_back(vel);
-    state.effort.push_back(tau);
+      PublishJointState();
+    }
 
-    joint_state_pub.publish(state);
-}
+  private:
+    void PositionCommandCallback(const std_msgs::Float64::ConstPtr &msg)
+    {
+      target_position_ = msg->data;
+      has_pos_command_ = true;
+    }
+
+    void MITCommandCallback(const dm_motor_controller::mit_control_frame::ConstPtr &msg)
+    {
+      mit_cmd_ = *msg;
+      has_mit_command_ = true;
+    }
+
+    void PublishJointState()
+    {
+      sensor_msgs::JointState state;
+      state.header.stamp = ros::Time::now();
+      state.name.push_back("motor_joint");
+      state.position.push_back(motor_.Get_Position());
+      state.velocity.push_back(motor_.Get_Velocity());
+      state.effort.push_back(motor_.Get_tau());
+      joint_state_pub_.publish(state);
+    }
+
+    std::shared_ptr<SerialPort> serial_;
+    std::shared_ptr<damiao::Motor_Control> motor_control_;
+    damiao::Motor motor_;
+
+    ros::Publisher joint_state_pub_;
+    ros::Subscriber pos_sub_;
+    ros::Subscriber mit_sub_;
+
+    int control_mode_ = -1;
+    double target_position_ = 0.0;
+    bool has_pos_command_ = false;
+    bool has_mit_command_ = false;
+    dm_motor_controller::mit_control_frame mit_cmd_;
+  };
+
+} // namespace dm_motor_node
 
 int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "dm_motor_node");
-    ros::NodeHandle nh;
+  ros::init(argc, argv, "dm_motor_node");
+  ros::NodeHandle nh;
 
-    ROS_INFO("Opening serial port: /dev/ttyACM0 ...");
-    auto serial = std::make_shared<SerialPort>("/dev/ttyACM0", B921600);
-    ROS_INFO("Serial port opened.");
+  try
+  {
+    dm_motor_node::MotorInterface motor_if("/dev/ttyACM0", B921600);
+    motor_if.InitROS(nh);
 
-    dm = std::make_shared<damiao::Motor_Control>(serial);
-    dm->addMotor(&M1);
-    ROS_INFO("Motor added.");
-
-    dm->switchControlMode(M1, damiao::POS_VEL_MODE);
-    dm->enable(M1);
-    control_mode = damiao::POS_VEL_MODE;
-    ROS_INFO("Motor enabled in POS_VEL_MODE.");
-
-    ros::Subscriber pos_sub = nh.subscribe("dm_motor/command", 10, controlCallback);
-    ros::Subscriber mit_sub = nh.subscribe("dm_motor/mit_command", 10, mitCallback);
-
-    joint_state_pub = nh.advertise<sensor_msgs::JointState>("dm_motor/state", 10);
-
-    ros::Rate loop_rate(50);  // Publish joint state at 50 Hz
+    ros::Rate loop_rate(200);
     while (ros::ok())
     {
-        publishJointState();
-        ros::spinOnce();
-        loop_rate.sleep();
+      motor_if.SpinOnce();
+      ros::spinOnce();
+      loop_rate.sleep();
     }
+  }
+  catch (...)
+  {
+    ROS_FATAL("Failed to initialize motor interface. Shutting down.");
+    return 1;
+  }
 
-    return 0;
+  return 0;
 }

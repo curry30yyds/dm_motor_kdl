@@ -1,5 +1,5 @@
 #include <ros/ros.h>
-#include <dm_motor_controller/MITCommand.h>
+#include <dm_motor_controller/mit_control_frame.h>
 #include <kdl/path_line.hpp>
 #include <kdl/velocityprofile_trap.hpp>
 #include <kdl/trajectory_segment.hpp>
@@ -11,35 +11,18 @@
 #include <kdl/trajectory.hpp>
 #include <kdl/trajectory_stationary.hpp>
 #include <kdl/trajectory_composite.hpp>
-#include <kdl/path_roundedcomposite.hpp>
 #include <kdl/utilities/error.h>
 #include <kdl/utilities/utility.h>
 
 KDL::Trajectory_Segment* generate_trajectory(double start, double end, double v_max, double a_max) {
     ROS_INFO("Generating trajectory from %.3f to %.3f", start, end);
 
-   
     KDL::Frame f_start(KDL::Vector(start, 0, 0));
     KDL::Frame f_end(KDL::Vector(end, 0, 0));
-    
     KDL::RotationalInterpolation* rot_interp = new KDL::RotationalInterpolation_SingleAxis();
-
-    // path_line  直线规划
-    // KDL::Path_Line* path = new KDL::Path_Line(f_start, f_end, rot_interp, 1e-6, false);
-     
-    // Path_RoundedComposite   带有圆弧和光滑曲线的轨迹
-    KDL::Path_RoundedComposite* path = new KDL::Path_RoundedComposite(1.0, 0.5, rot_interp);
-    path->Add(KDL::Frame(KDL::Rotation::RPY(0,0,0),KDL::Vector(start, 0, 0)));  
-    // path->Add(KDL::Frame(KDL::Rotation::RPY(0,0,0),KDL::Vector(0, 0, 0)));  
-    path->Add(KDL::Frame(KDL::Rotation::RPY(0,0,0),KDL::Vector(-1, 0, 0)));    
-    // path->Add(KDL::Frame(KDL::Rotation::RPY(0,0,0),KDL::Vector(1, 0, 0))); 
-    // path->Add(KDL::Frame(KDL::Rotation::RPY(0,0,0),KDL::Vector(2, 0, 0)));
-    path->Add(KDL::Frame(KDL::Rotation::RPY(0,0,0),KDL::Vector(end, 0, 0)));
-	path->Finish();
-
+    KDL::Path_Line* path = new KDL::Path_Line(f_start, f_end, rot_interp, 1e-6, false);
 
     double path_length = path->PathLength();
-    ROS_DEBUG("Path length: %.3f", path_length);
     if (path_length <= 0) {
         ROS_ERROR("Path length is invalid: %.3f", path_length);
         delete path;
@@ -48,14 +31,6 @@ KDL::Trajectory_Segment* generate_trajectory(double start, double end, double v_
 
     KDL::VelocityProfile_Trap* profile = new KDL::VelocityProfile_Trap(v_max, a_max);
     profile->SetProfile(0.0, path_length);
-    KDL::Trajectory* traject = new KDL::Trajectory_Segment(path, profile);
-
-    KDL::Trajectory_Composite* ctraject = new KDL::Trajectory_Composite();
-	ctraject->Add(traject);
-	ctraject->Add(new KDL::Trajectory_Stationary(1.0,KDL::Frame(KDL::Vector(2, 0, 0))));
-
-    ROS_DEBUG("Velocity profile created with v_max=%.3f, a_max=%.3f", v_max, a_max);
-
 
     return new KDL::Trajectory_Segment(path, profile);
 }
@@ -64,13 +39,10 @@ int main(int argc, char** argv) {
     ros::init(argc, argv, "kdl_trajectory_generator");
     ros::NodeHandle nh("~");
 
-
     std::string yaml_path;
     nh.param<std::string>("config_file", yaml_path, "config/trajectory_config.yaml");
-
     YAML::Node config = YAML::LoadFile(yaml_path);
     auto traj = config["trajectory"];
-
 
     double theta_start = traj["theta_start"].as<double>();
     double theta_end   = traj["theta_end"].as<double>();
@@ -83,56 +55,46 @@ int main(int argc, char** argv) {
     bool save_csv = traj["save_csv"].as<bool>();
     std::string csv_path = traj["csv_path"].as<std::string>();
 
+    ros::Publisher pub = nh.advertise<dm_motor_controller::mit_control_frame>("/dm_motor/mit_command", 10);
+    ros::Duration(1.0).sleep();
 
-    ros::Publisher pub = nh.advertise<dm_motor_controller::MITCommand>("/dm_motor/mit_command", 10);
-    ros::Duration(1.0).sleep(); 
-
-   
     std::ofstream csv_file;
     if (save_csv) {
         csv_file.open(csv_path);
         csv_file << "t,position,velocity\n";
     }
 
-    
     ros::Rate rate(freq);
     double dt = 1.0 / freq;
 
-    
     bool forward = true;
     while (ros::ok()) {
         double start = forward ? theta_start : theta_end;
         double end   = forward ? theta_end   : theta_start;
 
-        
         KDL::Trajectory_Segment* segment = generate_trajectory(start, end, v_max, a_max);
         if (segment == nullptr) {
             ROS_ERROR("Trajectory generation failed, skipping iteration.");
-            break;  
+            break;
         }
 
         double total_time = segment->Duration();
         ROS_INFO("Trajectory duration: %.3f seconds", total_time);
 
-   
         double t = 0.0;
         while (ros::ok() && t <= total_time) {
-            ROS_INFO("Time: %.3f", t);  
-
-         
             KDL::Frame pos_frame = segment->Pos(t);
             KDL::Twist vel_twist = segment->Vel(t);
 
             double pos = pos_frame.p.x();
             double vel = vel_twist.vel.x();
 
-            ROS_INFO("Position: %.3f, Velocity: %.3f", pos, vel);  
-            dm_motor_controller::MITCommand cmd;
+            dm_motor_controller::mit_control_frame cmd;
+            cmd.p_des = pos;
+            cmd.v_des = vel;
             cmd.kp = kp;
             cmd.kd = kd;
-            cmd.position = pos;
-            cmd.velocity = vel;
-            cmd.torque = 0.0;
+            cmd.t_ff = 0.0;
 
             pub.publish(cmd);
 
@@ -146,11 +108,9 @@ int main(int argc, char** argv) {
 
         delete segment;
 
-    
         if (!loop) break;
-        forward = !forward; 
+        forward = !forward;
     }
-
 
     if (save_csv) {
         csv_file.close();
