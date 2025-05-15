@@ -31,6 +31,7 @@ namespace dm_motor_trajectory_node
         double ff_gain = 1.0;
         double v_max = 5.0;
         bool loop = false;
+        bool record_all_loops = false;
         std::string csv_path = "data/trajectory_comparison.csv";
         ControlMode mode = VELOCITY;
     };
@@ -59,6 +60,8 @@ namespace dm_motor_trajectory_node
             params.v_max = config["v_max"].as<double>();
         if (config["loop"])
             params.loop = config["loop"].as<bool>();
+        if (config["record_all_loops"])
+            params.record_all_loops = config["record_all_loops"].as<bool>();
         if (config["control_mode"])
         {
             std::string mode_str = config["control_mode"].as<std::string>();
@@ -104,32 +107,57 @@ namespace dm_motor_trajectory_node
             }
             int points_per_joint = position_sequences_.size() / joint_num;
 
-            std::vector<std::vector<double>> joint_points(joint_num);
-            for (int j = 0; j < joint_num; ++j)
-            {
-                for (int i = 0; i < points_per_joint; ++i)
-                {
-                    joint_points[j].push_back(position_sequences_[j + i * joint_num]);
-                }
-            }
+            // std::vector<std::vector<double>> joint_points(joint_num);
+            // for (int j = 0; j < joint_num; ++j)
+            // {
+            //     joint_points[j].push_back(latest_state_.joint_states[j].position);
+            //     for (int i = 0; i < points_per_joint; ++i)
+            //     {
+            //         joint_points[j].push_back(position_sequences_[j + i * joint_num]);
+            //     }
+            //     std::ostringstream oss;
+            //     oss << "Joint " << j << " point sequence: ";
+            //     for (const auto &pt : joint_points[j])
+            //     {
+            //         oss << pt << " ";
+            //     }
+            //     ROS_INFO_STREAM(oss.str());
+            // }
 
             int executed_loops = 0;
-            bool saved_csv = false;
+            // bool saved_csv = false;
             std::ofstream csv;
             double global_time = 0.0;
             std::vector<KDL::VelocityProfile_Spline> splines(joint_num);
-
+            std::ofstream(params.csv_path, std::ios::trunc).close();
             do
             {
-                if (!saved_csv)
+                bool recording = params.record_all_loops || executed_loops == 0;
+                if (recording)
                 {
-                    csv.open(params.csv_path);
+                    csv.open(params.csv_path, std::ios::app);
                     csv << "time";
                     for (int j = 0; j < joint_num; ++j)
                     {
                         csv << ",exp_pos_" << j << ",exp_vel_" << j << ",act_pos_" << j << ",act_vel_" << j;
                     }
                     csv << "\n";
+                }
+                std::vector<std::vector<double>> joint_points(joint_num);
+                for (int j = 0; j < joint_num; ++j)
+                {
+                    joint_points[j].push_back(latest_state_.joint_states[j].position);
+                    for (int i = 0; i < points_per_joint; ++i)
+                    {
+                        joint_points[j].push_back(position_sequences_[j + i * joint_num]);
+                    }
+                    std::ostringstream oss;
+                    oss << "Joint " << j << " point sequence: ";
+                    for (const auto &pt : joint_points[j])
+                    {
+                        oss << pt << " ";
+                    }
+                    ROS_INFO_STREAM(oss.str());
                 }
 
                 size_t seg_len = joint_points[0].size() - 1;
@@ -177,7 +205,7 @@ namespace dm_motor_trajectory_node
 
                         pub.publish(cmd);
 
-                        if (!saved_csv)
+                        if (recording)
                         {
                             csv << time_now;
                             for (int j = 0; j < joint_num; ++j)
@@ -193,10 +221,9 @@ namespace dm_motor_trajectory_node
                     global_time += params.segment_time;
                 }
 
-                if (!saved_csv)
+                if (recording)
                 {
                     csv.close();
-                    saved_csv = true;
                 }
 
                 ++executed_loops;

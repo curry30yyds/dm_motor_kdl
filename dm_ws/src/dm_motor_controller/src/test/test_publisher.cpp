@@ -23,7 +23,7 @@ int main(int argc, char **argv)
 
     position_msg.data = {
         0.0, 0.5, 1.0, 1.5,   // Joint 0
-        -1.0, -0.5, 0.0, 0.5, // Joint 1
+        -1.0, -0.5, 0.0, 0.5, // Joint 1  0.75
         1.0, 0.5, 0.0, -0.5,  // Joint 2
         0.0, -0.5, -1.0, -1.5 // Joint 3
     };
@@ -36,8 +36,9 @@ int main(int argc, char **argv)
 
         for (int i = 0; i < 4; ++i)
         {
+            // + i * 0.1
             hy_hardware_interface::joint_state joint;
-            joint.position = 0.0 + i * 0.1;
+            joint.position = 5.0;
             joint.velocity = 0.0;
             joint.torque = 0.0;
             joint.temperature = 0;

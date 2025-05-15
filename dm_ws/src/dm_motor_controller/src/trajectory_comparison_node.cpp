@@ -29,8 +29,9 @@ namespace dm_motor_trajectory_node
     double pos_gain = 1.0;
     double vel_gain = 1.0;
     double ff_gain = 1.0;
-    double v_max = 5.0;
+    double v_max = 8.0;
     bool loop = false;
+    bool record_all_loops = false;
     std::string csv_path = "data/trajectory_comparison.csv";
     ControlMode mode = VELOCITY;
   };
@@ -38,9 +39,9 @@ namespace dm_motor_trajectory_node
   bool LoadParams(const std::string &yaml_path, TrajectoryParams &params)
   {
     YAML::Node config = YAML::LoadFile(yaml_path);
-    if (!config["points"] || config["points"].size() < 2)
+    if (!config["points"] || config["points"].size() < 1)
     {
-      ROS_ERROR("At least two points required.");
+      ROS_ERROR("At least one point required.");
       return false;
     }
     for (const auto &p : config["points"])
@@ -68,6 +69,8 @@ namespace dm_motor_trajectory_node
       params.v_max = config["v_max"].as<double>();
     if (config["loop"])
       params.loop = config["loop"].as<bool>();
+    if (config["record_all_loops"])
+      params.record_all_loops = config["record_all_loops"].as<bool>();
     if (config["control_mode"])
     {
       std::string mode_str = config["control_mode"].as<std::string>();
@@ -98,6 +101,7 @@ namespace dm_motor_trajectory_node
       integral_ += error * dt;
       double derivative = (error - prev_error_) / dt;
       prev_error_ = error;
+      ROS_INFO_STREAM("Current error : " << kp_);
       return kp_ * error + ki_ * integral_ + kd_ * derivative;
     }
 
@@ -126,23 +130,34 @@ namespace dm_motor_trajectory_node
     void Execute(const ros::Publisher &pub, const TrajectoryParams &params)
     {
       int executed_loops = 0;
-      bool saved_csv = false;
       std::ofstream csv;
       double global_time = 0.0;
-      PIDController pid(params.kp, 0.0, 0.0);
+      PIDController pid(1.0, 0.0, 1.0);
+
+      // Always clear file before run
+      std::ofstream(params.csv_path, std::ios::trunc).close();
 
       do
       {
-        if (!saved_csv)
+        ros::spinOnce();
+        ros::Duration(0.05).sleep();
+
+        std::vector<double> all_points;
+        all_points.push_back(actual_position_);
+        all_points.insert(all_points.end(), params.points.begin(), params.points.end());
+        ROS_INFO_STREAM("Current actual position: " << actual_position_);
+
+        bool recording = params.record_all_loops || executed_loops == 0;
+        if (recording)
         {
-          csv.open(params.csv_path);
+          csv.open(params.csv_path, std::ios::app);
           csv << "time,expected_pos,expected_vel,actual_pos,actual_vel,error_pos,error_vel\n";
         }
 
-        for (size_t i = 0; i + 1 < params.points.size(); ++i)
+        for (size_t seg = 0; seg + 1 < all_points.size(); ++seg)
         {
           KDL::VelocityProfile_Spline spline;
-          spline.SetProfileDuration(params.points[i], 0.0, 0.0, params.points[i + 1], 0.0, 0.0, params.segment_time);
+          spline.SetProfileDuration(all_points[seg], 0.0, 0.0, all_points[seg + 1], 0.0, 0.0, params.segment_time);
 
           for (double t = 0.0; t <= params.segment_time; t += params.dt)
           {
@@ -168,6 +183,7 @@ namespace dm_motor_trajectory_node
             }
             else
             {
+              // compute  params.vel_gain * err_vel  pid.compute(err_vel, params.dt)
               double v_ctrl = params.ff_gain * vel + params.pos_gain * err_pos + params.vel_gain * err_vel;
               v_ctrl = std::max(-params.v_max, std::min(v_ctrl, params.v_max));
               cmd.joint_control_frames[0].v_des = static_cast<float>(v_ctrl);
@@ -175,7 +191,7 @@ namespace dm_motor_trajectory_node
 
             pub.publish(cmd);
 
-            if (!saved_csv)
+            if (recording)
             {
               csv << time_now << "," << pos << "," << vel << "," << actual_position_ << "," << filtered_velocity_ << ","
                   << err_pos << "," << err_vel << "\n";
@@ -186,11 +202,8 @@ namespace dm_motor_trajectory_node
           global_time += params.segment_time;
         }
 
-        if (!saved_csv)
-        {
+        if (recording)
           csv.close();
-          saved_csv = true;
-        }
 
         ++executed_loops;
         ROS_INFO("Loop %d complete. Mode: %s", executed_loops, params.mode == POSITION ? "POSITION" : "VELOCITY");
